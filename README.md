@@ -6,6 +6,7 @@
 
 ## 📋 Table of Contents
 
+- [Screenshots](#screenshots)
 - [Overview](#overview)
 - [Key Features](#key-features)
 - [Tech Stack](#tech-stack)
@@ -19,6 +20,68 @@
 - [Getting Started](#getting-started)
 - [Environment Variables](#environment-variables)
 - [Running the Project](#running-the-project)
+
+---
+
+## Screenshots
+
+### 📚 Adaptive Learning Path — Topic Grid
+![Learning Path](Screenshots/Screenshot%202026-04-13%20234825.png)
+The **Learn** page shows all 8 topics prioritised by the AI — weakest first. Each card displays current accuracy, difficulty level, and quick actions. Topics already in progress show a **Continue** button while untouched topics show **Begin Quiz**.
+
+---
+
+### 📚 Learning Path — Full Topic Grid View
+![Topic Grid](Screenshots/Screenshot%202026-04-13%20234836.png)
+Scrolling further reveals all 8 engineering subjects — Python, DSA, OOP, OS, DBMS, Networks, Web Dev, and Math — each with their live status badge (In Progress / Not Started), accuracy percentage, and next recommended difficulty.
+
+---
+
+### 🎯 AI Career Analysis — Branch Recommendations
+![Career Analysis](Screenshots/Screenshot%202026-04-13%20235947.png)
+After completing the interest assessment, **Ollama AI** analyses the responses and recommends the best-fit engineering branches with a percentage match score. The selected branch triggers live flowchart generation.
+
+---
+
+### 📊 Career Intelligence Report — Full Analysis
+![Intelligence Report](Screenshots/Screenshot%202026-04-13%20235959.png)
+The **Your Career Intelligence Report** page powered by Ollama AI displays the full assessment journey, strengths/weaknesses, a skill strength bar chart, and an AI Mentor narrative explanation of the student's dominant interests.
+
+---
+
+### 🗺️ AI-Generated Career Roadmap (Flowchart)
+![Career Roadmap](Screenshots/Screenshot%202026-04-14%20000106.png)
+Once a branch is selected, `qwen2.5-coder:7b` generates a step-by-step career learning roadmap in real-time. Multiple career paths (Software Development, AI, Cybersecurity, etc.) are rendered as expandable flowchart steps with timelines.
+
+---
+
+### 💬 AI Mentor Chatbot — Processing Query
+![Chatbot Thinking](Screenshots/Screenshot%202026-04-14%20000137.png)
+The floating **OneStop AI Mentor** chatbot (powered by Ollama) processes user questions in real-time. The "Analyzing..." state shows while `qwen2.5-coder:7b` generates a response — no cloud API involved.
+
+---
+
+### 💬 AI Mentor Chatbot — Response
+![Chatbot Response](Screenshots/Screenshot%202026-04-14%20000256.png)
+The AI Mentor delivers a detailed, contextually accurate response to the student's question about API keys. The chatbot maintains conversation history and adapts responses based on prior context in the session.
+
+---
+
+### 📖 Learn Page — Custom Notes Generator
+![Custom Notes Generator](Screenshots/Screenshot%202026-04-14%20000336.png)
+The **"Need Specific Notes?"** panel lets students type any concept or question and click **Generate Notes** to request fully customised AI-written study material. The AI Recommends Next banner now shows a **Begin Quiz** button for direct access.
+
+---
+
+### ✍️ AI Notes — Generating (Loading State)
+![Notes Loading](Screenshots/Screenshot%202026-04-14%20000349.png)
+When a topic's notes button is clicked, a modal overlay appears with a spinner showing "Generating personalized notes..." while Ollama writes the content live. A **Take Quiz** shortcut is available at the bottom.
+
+---
+
+### 📝 AI Notes — Rendered Study Content
+![Notes Content](Screenshots/Screenshot%202026-04-14%20000506.png)
+The completed AI-generated notes for **Python** are rendered in rich formatted HTML directly inside the modal — covering introduction, syntax, variables, data types, and control structures personalised to the user's current level.
 
 ---
 
