@@ -254,6 +254,21 @@ const ProfilePage = () => {
                         ))}
                     </div>
                 </div>
+
+                {/* Level and Experience */}
+                <div className="glass-card p-6 border-indigo-500/10 md:col-span-2">
+                    <h2 className="text-lg font-bold text-white mb-4">Level & Experience</h2>
+                    <div className="flex items-center gap-6">
+                        <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center text-white text-2xl font-extrabold shadow-lg shadow-indigo-500/20 border border-white/20">
+                            {user?.level || 1}
+                        </div>
+                        <div>
+                            <p className="text-xl font-bold text-white">Level {user?.level || 1}</p>
+                            <p className="text-indigo-300 font-medium">Total XP: <span className="text-emerald-400">{user?.totalXP || 0}</span></p>
+                        </div>
+                    </div>
+                </div>
+
             </div>
         </div>
     );

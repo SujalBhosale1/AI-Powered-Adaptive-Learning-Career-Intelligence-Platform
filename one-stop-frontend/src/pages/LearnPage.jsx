@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import LearningCard from '../components/LearningCard';
 import { useStudentData } from '../hooks/useStudentData';
 import { getAccuracy, getTopicStatus, getRecommendedDifficulty } from '../data/skillEngine';
-import { BookOpen, Filter, TrendingUp, Zap, Brain } from 'lucide-react';
+import { BookOpen, Filter, TrendingUp, Zap, Brain, X } from 'lucide-react';
 
 const TOPIC_DESCRIPTIONS = {
   Python: 'Variables, functions, OOP, generators, decorators, and more.',
@@ -22,6 +22,36 @@ const LearnPage = () => {
   const navigate = useNavigate();
   const { skillScores, prioritizedTopics, confusedTopics } = useStudentData();
   const [activeFilter, setActiveFilter] = useState('All');
+  const [customTopicInput, setCustomTopicInput] = useState('');
+  const [isNotesOpen, setIsNotesOpen] = useState(false);
+  const [activeNotesTopic, setActiveNotesTopic] = useState(null);
+  const [notesContent, setNotesContent] = useState('');
+  const [loadingNotes, setLoadingNotes] = useState(false);
+
+  const handleViewNotes = async (topic) => {
+    setActiveNotesTopic(topic);
+    setIsNotesOpen(true);
+    setLoadingNotes(true);
+    setNotesContent('');
+
+    try {
+      const res = await fetch(`http://localhost:5000/api/learning/notes?topic=${encodeURIComponent(topic)}`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('onestop_token')}`
+        }
+      });
+      const data = await res.json();
+      if (data.success) {
+        setNotesContent(data.notes);
+      } else {
+        setNotesContent('<p>Failed to load notes.</p>');
+      }
+    } catch (err) {
+      setNotesContent('<p>Error fetching notes.</p>');
+    } finally {
+      setLoadingNotes(false);
+    }
+  };
 
   const filteredTopics = prioritizedTopics.filter(topic => {
     const status = getTopicStatus(topic);
@@ -126,10 +156,44 @@ const LearnPage = () => {
               onClick={() => handleStart(filteredTopics[0])}
               className="shrink-0 px-6 py-3 bg-white/20 border border-white/30 backdrop-blur-sm text-white font-bold rounded-xl hover:bg-white/30 transition-colors shadow-md"
             >
-              Start Now →
+              Begin Quiz →
             </button>
           </div>
         )}
+
+        {/* Custom Notes Generator */}
+        <div className="glass-card p-6 border-indigo-500/20 shadow-lg relative overflow-hidden">
+          <div className="absolute top-0 right-0 p-4 opacity-10 pointer-events-none">
+            <Brain className="w-32 h-32 text-indigo-400" />
+          </div>
+          <div className="relative z-10">
+            <h2 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
+              <Zap className="h-5 w-5 text-amber-400" /> Need Specific Notes?
+            </h2>
+            <p className="text-sm text-indigo-200 mb-4">
+              Type any sub-topic or specific question below and our AI will generate completely customized study material just for you.
+            </p>
+            <form 
+              onSubmit={(e) => { e.preventDefault(); if (customTopicInput.trim()) handleViewNotes(customTopicInput.trim()); }}
+              className="flex gap-3 flex-col sm:flex-row"
+            >
+              <input
+                type="text"
+                placeholder="e.g., Explain React Hooks... Give me notes on Binary Search Trees..."
+                className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder:text-indigo-300/50 focus:outline-none focus:border-indigo-500 transition-colors"
+                value={customTopicInput}
+                onChange={(e) => setCustomTopicInput(e.target.value)}
+              />
+              <button
+                type="submit"
+                disabled={!customTopicInput.trim()}
+                className="shrink-0 px-6 py-3 bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-400 hover:to-indigo-500 text-white font-bold rounded-xl shadow-[0_0_15px_rgba(99,102,241,0.5)] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Generate Notes
+              </button>
+            </form>
+          </div>
+        </div>
 
         {/* Topic Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
@@ -142,6 +206,7 @@ const LearnPage = () => {
               recommendedDifficulty={getRecommendedDifficulty(topic)}
               description={TOPIC_DESCRIPTIONS[topic]}
               onStart={handleStart}
+              onViewNotes={handleViewNotes}
             />
           ))}
         </div>
@@ -153,6 +218,41 @@ const LearnPage = () => {
           </div>
         )}
       </div>
+
+      {/* Notes Modal */}
+      {isNotesOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-[#1e1b4b] border border-indigo-500/30 rounded-2xl w-full max-w-3xl max-h-[85vh] flex flex-col shadow-2xl overflow-hidden">
+            <div className="flex justify-between items-center p-5 border-b border-white/10 bg-white/5">
+              <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                <BookOpen className="text-indigo-400 h-5 w-5" />
+                AI Notes: {activeNotesTopic}
+              </h2>
+              <button onClick={() => setIsNotesOpen(false)} className="text-indigo-300 hover:text-white transition">
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+            <div className="p-6 overflow-y-auto flex-1 prose prose-invert prose-indigo max-w-none text-indigo-100">
+              {loadingNotes ? (
+                <div className="flex flex-col items-center justify-center py-12 text-indigo-300">
+                  <div className="w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+                  Generating personalized notes...
+                </div>
+              ) : (
+                <div dangerouslySetInnerHTML={{ __html: notesContent }} />
+              )}
+            </div>
+            <div className="p-4 border-t border-white/10 bg-white/5 flex justify-end">
+              <button
+                onClick={() => { setIsNotesOpen(false); handleStart(activeNotesTopic); }}
+                className="px-6 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-bold transition"
+              >
+                Take Quiz
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

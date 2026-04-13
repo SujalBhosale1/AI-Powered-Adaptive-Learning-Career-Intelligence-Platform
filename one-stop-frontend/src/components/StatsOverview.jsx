@@ -12,13 +12,13 @@ const StatCard = ({ icon: Icon, label, value, color }) => (
     </div>
 );
 
-const StatsOverview = () => {
+const StatsOverview = ({ profileStrength = "0%", skillsVerified = 0, daysStreak = 0, profileViews = 0 }) => {
     return (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <StatCard icon={TrendingUp} label="Profile Strength" value="85%" color="blue" />
-            <StatCard icon={Award} label="Skills Verified" value="12" color="green" />
-            <StatCard icon={Calendar} label="Days Streak" value="7" color="orange" />
-            <StatCard icon={Users} label="Profile Views" value="42" color="purple" />
+            <StatCard icon={TrendingUp} label="Profile Strength" value={profileStrength} color="blue" />
+            <StatCard icon={Award} label="Skills Verified" value={skillsVerified} color="green" />
+            <StatCard icon={Calendar} label="Days Streak" value={daysStreak} color="orange" />
+            <StatCard icon={Users} label="Profile Views" value={profileViews} color="purple" />
         </div>
     );
 };

@@ -1,53 +1,60 @@
 /**
- * geminiService.js
- * All AI capabilities powered by Google Gemini (gemini-1.5-flash).
- * Drop-in replacement — same exports as openaiService.js.
+ * aiService.js (replaces geminiService.js)
+ * All AI capabilities powered by local Ollama (qwen2.5-coder7b).
+ * Drop-in replacement — same exports as before.
  */
 
-const { GoogleGenerativeAI } = require('@google/generative-ai');
+const OLLAMA_URL = 'http://127.0.0.1:11434/api/generate';
+const MODEL = 'qwen2.5-coder:7b'; // As requested by user
 
-const getClient = () => {
-    if (!process.env.GEMINI_API_KEY) throw new Error('GEMINI_API_KEY not set in .env');
-    return new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-};
+async function callOllama(userPrompt, systemPrompt = '', jsonMode = false) {
+    const fullPrompt = systemPrompt ? `${systemPrompt}\n\n${userPrompt}` : userPrompt;
+    let finalPrompt = jsonMode
+        ? `${fullPrompt}\n\nIMPORTANT: Return ONLY valid JSON. No markdown fences, no extra text.`
+        : fullPrompt;
 
-const MODEL = 'gemini-1.5-flash';
-
-/**
- * Core helper — send a prompt to Gemini and get text back.
- * When jsonMode=true the prompt explicitly asks for JSON and we clean the response.
- */
-async function callGemini(userPrompt, systemPrompt = '', jsonMode = false) {
-    const client = getClient();
-    const model  = client.getGenerativeModel({
+    const body = {
         model: MODEL,
-        ...(systemPrompt ? { systemInstruction: systemPrompt } : {}),
-    });
+        prompt: finalPrompt,
+        stream: false,
+        format: jsonMode ? "json" : undefined
+    };
 
-    const fullPrompt = jsonMode
-        ? `${userPrompt}\n\nIMPORTANT: Return ONLY valid JSON. No markdown fences, no extra text.`
-        : userPrompt;
+    try {
+        const response = await fetch(OLLAMA_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+        });
 
-    const result = await model.generateContent(fullPrompt);
-    const raw    = result.response.text();
-    return raw;
+        if (!response.ok) {
+            throw new Error(`Ollama error: ${response.statusText}`);
+        }
+
+        const data = await response.json();
+        return data.response;
+    } catch (error) {
+        console.error('[Ollama] call error:', error);
+        throw error;
+    }
 }
 
-// Safe JSON extractor — strips code fences if Gemini wraps output in them
 function extractJSON(raw) {
     let cleaned = raw.trim();
     cleaned = cleaned.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim();
-    return JSON.parse(cleaned);
+    try {
+        return JSON.parse(cleaned);
+    } catch (e) {
+        console.error("Failed to parse JSON:", cleaned);
+        throw e;
+    }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 1. Generate Interest-Based (non-MCQ) Assessment Questions
-//    Questions are general/scenario-based — NO right or wrong answers.
-//    Options carry a "tag" revealing which field the preference maps to.
 // ─────────────────────────────────────────────────────────────────────────────
 async function generateInterestQuestions(interests, name = 'Student') {
     const interestList = interests.length ? interests.join(', ') : 'technology, engineering';
-
     const systemPrompt = 'You are a career counselor designing an interest assessment for an engineering student. Generate intelligent scenario-based questions to understand their personality, preferences, and career inclinations. There are NO right or wrong answers.';
 
     const userPrompt = `
@@ -69,53 +76,23 @@ Return ONLY this JSON:
       "question": "You have a weekend free to work on a personal project. What would you build?",
       "category": "Project Preference",
       "options": [
-        { "text": "A web app that solves a daily life problem", "tag": "coding" },
-        { "text": "A robot that can navigate a maze autonomously", "tag": "robotics" },
-        { "text": "An AI model that predicts stock prices", "tag": "ai_ml" },
-        { "text": "A circuit that automates home appliances", "tag": "electronics" }
+        { "text": "A web app", "tag": "coding" },
+        { "text": "A robot", "tag": "robotics" },
+        { "text": "An AI model", "tag": "ai_ml" },
+        { "text": "A circuit", "tag": "electronics" }
       ]
     }
   ]
 }
-
-Make all 10 questions varied — cover: project preferences, working style, problem-solving approach, future vision, team role, tech vs hardware preference, etc.`;
+Make all 10 questions varied.`;
 
     try {
-        const raw = await callGemini(userPrompt, systemPrompt, true);
+        const raw = await callOllama(userPrompt, systemPrompt, true);
         const parsed = extractJSON(raw);
         return parsed.questions || [];
     } catch (e) {
-        console.error('[Gemini] generateInterestQuestions error:', e.message);
-        // Structured fallback questions
-        return [
-            {
-                id: 1, question: 'What kind of project excites you most?', category: 'Project Interest',
-                options: [
-                    { text: 'Building a web platform for millions of users', tag: 'coding' },
-                    { text: 'Creating an autonomous robot', tag: 'robotics' },
-                    { text: 'Training an AI to recognize images', tag: 'ai_ml' },
-                    { text: 'Designing an electronic sensor system', tag: 'electronics' }
-                ]
-            },
-            {
-                id: 2, question: 'When you solve a problem, you prefer to:', category: 'Working Style',
-                options: [
-                    { text: 'Write code and test until it works', tag: 'coding' },
-                    { text: 'Build a physical prototype', tag: 'robotics' },
-                    { text: 'Analyze data and find patterns', tag: 'ai_ml' },
-                    { text: 'Understand the circuit or hardware behind it', tag: 'electronics' }
-                ]
-            },
-            {
-                id: 3, question: 'Your dream job would involve:', category: 'Career Vision',
-                options: [
-                    { text: 'Building products used by millions daily', tag: 'coding' },
-                    { text: 'Designing intelligent machines', tag: 'robotics' },
-                    { text: 'Researching and advancing AI capabilities', tag: 'ai_ml' },
-                    { text: 'Working with hardware and embedded systems', tag: 'electronics' }
-                ]
-            },
-        ];
+        console.error('[Ollama] generateInterestQuestions error:', e.message);
+        throw e;
     }
 }
 
@@ -123,9 +100,8 @@ Make all 10 questions varied — cover: project preferences, working style, prob
 // 2. Analyze student interest responses → branch recommendations
 // ─────────────────────────────────────────────────────────────────────────────
 async function analyzeStudentPerformance(profile, interestResponses) {
-    const systemPrompt = 'You are an expert AI career counselor. Analyze a student\'s interest assessment responses and recommend the best engineering branches for them. Return ONLY valid JSON.';
+    const systemPrompt = 'You are an expert AI career counselor. Analyze a student\'s assessment responses. Return ONLY valid JSON.';
 
-    // Tally tags from selected options
     const tagCount = {};
     interestResponses.forEach(r => {
         const tag = r.selectedTag || 'general';
@@ -135,63 +111,29 @@ async function analyzeStudentPerformance(profile, interestResponses) {
     const topInterests = sortedTags.slice(0, 3).map(([tag, count]) => `${tag} (${count} responses)`).join(', ');
 
     const userPrompt = `
-Analyze this engineering student's interest assessment.
+Student Profile: Name: ${profile.name}, Interests: ${(profile.interests || []).join(', ')}, Branch: ${profile.branch}.
+Top Interests: ${topInterests}
 
-Student Profile:
-- Name: ${profile.name || 'Student'}
-- Declared Interests: ${(profile.interests || []).join(', ')}
-- 10th marks: ${profile.marks10 || 'N/A'}%
-- 12th marks: ${profile.marks12 || 'N/A'}%
-- Branch preference: ${profile.branch || 'Undecided'}
-
-Interest Assessment Results (${interestResponses.length} questions answered):
-- Dominant interest areas based on choices: ${topInterests}
-- All responses: ${JSON.stringify(interestResponses.map(r => ({ q: r.question?.substring(0, 60), chosen: r.selectedText, tag: r.selectedTag })))}
-
-Based on these ACTUAL CHOICES (not guesses), return ONLY this JSON:
+Return ONLY this JSON based on their profile and responses:
 {
-  "strengths": ["Field 1", "Field 2"],
+  "strengths": ["Field 1"],
   "weaknesses": ["Field 3"],
   "skillScores": [
     { "name": "tag_name", "score": 85 }
   ],
   "dominantInterest": "Primary interest area",
-  "explanation": "2-3 clear, specific sentences explaining why these branches fit THIS student based on their actual choices.",
+  "explanation": "2-3 clear sentences.",
   "branchRecommendations": [
-    { "branch": "Computer Science", "matchPct": 92, "reason": "Specific reason based on their actual responses.", "color": "green" },
-    { "branch": "Electronics & Communication", "matchPct": 78, "reason": "Specific reason.", "color": "amber" },
-    { "branch": "Mechanical Engineering", "matchPct": 45, "reason": "Specific reason.", "color": "red" }
+    { "branch": "Computer Science", "matchPct": 92, "reason": "Specific reason.", "color": "green" }
   ]
-}
-
-Match percentages MUST be derived from the actual tag counts above, not random. Top tag = top branch match.`;
+}`;
 
     try {
-        const raw = await callGemini(userPrompt, systemPrompt, true);
-        const parsed = extractJSON(raw);
-        return parsed;
+        const raw = await callOllama(userPrompt, systemPrompt, true);
+        return extractJSON(raw);
     } catch (e) {
-        console.error('[Gemini] analyzeStudentPerformance error:', e.message);
-        // Derive fallback from actual tag counts
-        const topTag = sortedTags[0]?.[0] || 'coding';
-        const tagToBranch = {
-            coding: 'Computer Science', ai_ml: 'Artificial Intelligence', robotics: 'Robotics & Automation',
-            electronics: 'Electronics & Communication', mechanics: 'Mechanical Engineering',
-            design: 'Design Engineering', management: 'Industrial Engineering', research: 'Research & Development'
-        };
-        return {
-            strengths: sortedTags.slice(0, 2).map(([t]) => tagToBranch[t] || t),
-            weaknesses: sortedTags.slice(-2).map(([t]) => tagToBranch[t] || t),
-            skillScores: sortedTags.map(([tag, count]) => ({ name: tagToBranch[tag] || tag, score: Math.round((count / interestResponses.length) * 100) + 20 })),
-            dominantInterest: tagToBranch[topTag] || topTag,
-            explanation: `Your assessment shows a strong preference for ${tagToBranch[topTag] || topTag}. Based on your ${interestResponses.length} responses, these branches align best with your natural inclinations and interests.`,
-            branchRecommendations: sortedTags.slice(0, 3).map(([tag, count], i) => ({
-                branch: tagToBranch[tag] || tag,
-                matchPct: Math.min(95, Math.round((count / interestResponses.length) * 100) + 50),
-                reason: `You showed strong preference for ${tag}-related choices in your assessment.`,
-                color: i === 0 ? 'green' : i === 1 ? 'amber' : 'red'
-            }))
-        };
+        console.error('[Ollama] analyzeStudentPerformance error:', e.message);
+        throw e;
     }
 }
 
@@ -199,19 +141,18 @@ Match percentages MUST be derived from the actual tag counts above, not random. 
 // 3. Career Prediction (for CareerPathPage)
 // ─────────────────────────────────────────────────────────────────────────────
 async function predictCareers(profile, performanceAnalytics) {
-    const systemPrompt = 'You are an elite career counselor. Return valid JSON only.';
+    const systemPrompt = 'You are a career counselor. Return JSON only.';
     const userPrompt = `
-Student branch: ${profile.branch}, Interests: ${(profile.interests || []).join(', ')}, Avg score: ${performanceAnalytics.avgScore}%.
+Student branch: ${profile.branch}, Interests: ${(profile.interests || []).join(', ')}.
 Suggest 3 matching career roles.
-Return JSON: { "matches": [{ "career": "Title", "match_percent": 85, "gap_skills": ["Skill"], "salary": "10-15 LPA" }], "confidence": 0.85 }`;
+Return ONLY JSON: { "matches": [{ "career": "Title", "match_percent": 85, "gap_skills": ["Skill"], "salary": "10-15 LPA" }], "confidence": 0.85 }`;
 
     try {
-        const raw = await callGemini(userPrompt, systemPrompt, true);
+        const raw = await callOllama(userPrompt, systemPrompt, true);
         const parsed = extractJSON(raw);
         return parsed.matches ? parsed : { matches: parsed };
     } catch (e) {
-        console.error('[Gemini] predictCareers error:', e.message);
-        return { matches: [], confidence: 0 };
+        throw e;
     }
 }
 
@@ -219,7 +160,7 @@ Return JSON: { "matches": [{ "career": "Title", "match_percent": 85, "gap_skills
 // 4. Career Flowchart
 // ─────────────────────────────────────────────────────────────────────────────
 async function generateCareerFlowchart(branch) {
-    const systemPrompt = 'You are a career advisor. Return only valid JSON.';
+    const systemPrompt = 'You are a career advisor. Return JSON only.';
     const userPrompt = `
 Generate a career learning flowchart for "${branch}" engineering students.
 Return ONLY JSON:
@@ -234,26 +175,13 @@ Return ONLY JSON:
       ]
     }
   ]
-}
-Include 2-3 paths, each with 4-5 steps. Colors: indigo, violet, emerald, blue, amber.`;
+}`;
 
     try {
-        const raw = await callGemini(userPrompt, systemPrompt, true);
+        const raw = await callOllama(userPrompt, systemPrompt, true);
         return extractJSON(raw);
     } catch (e) {
-        console.error('[Gemini] generateCareerFlowchart error:', e.message);
-        return {
-            branch, paths: [{
-                title: 'Software Engineer', color: 'indigo',
-                steps: [
-                    { id: '1', label: 'Foundation',      desc: 'Learn programming basics.',            duration: '2 months', skills: ['Python', 'JavaScript'] },
-                    { id: '2', label: 'DSA',             desc: 'Master data structures & algorithms.', duration: '3 months', skills: ['Arrays', 'Graphs'] },
-                    { id: '3', label: 'Web Dev',         desc: 'Build full-stack apps.',               duration: '3 months', skills: ['React', 'Node.js'] },
-                    { id: '4', label: 'System Design',   desc: 'Learn architecture patterns.',         duration: '2 months', skills: ['HLD', 'Microservices'] },
-                    { id: '5', label: 'Placement Ready', desc: 'Crack interviews.',                    duration: '1 month',  skills: ['LeetCode', 'Resume'] },
-                ]
-            }]
-        };
+        throw e;
     }
 }
 
@@ -261,24 +189,143 @@ Include 2-3 paths, each with 4-5 steps. Colors: indigo, violet, emerald, blue, a
 // 5. AI Mentor Chatbot
 // ─────────────────────────────────────────────────────────────────────────────
 async function chatWithMentor(message, historyContext) {
-    const systemPrompt = 'You are a helpful, concise AI mentor for engineering students named OneStop Mentor. Explain concepts clearly with examples. Keep responses short and practical.';
-    const userPrompt   = `${historyContext.length ? `Previous chat:\n${historyContext.join('\n')}\n\n` : ''}Student: ${message}\nMentor:`;
+    const systemPrompt = 'You are a helpful AI mentor for engineering students named OneStop Mentor. Explain clearly.';
+    const userPrompt   = `${historyContext.length ? `Context:\n${historyContext.join('\n')}\n\n` : ''}Student: ${message}\nMentor:`;
 
     try {
-        const response = await callGemini(userPrompt, systemPrompt, false);
-        return { response: response.trim(), source: 'gemini' };
+        const response = await callOllama(userPrompt, systemPrompt, false);
+        return { response: response.trim(), source: 'ollama' };
     } catch (e) {
-        console.error('[Gemini] chatWithMentor error:', e.message);
-        return { response: "I can't connect right now. Please check your Gemini API key.", source: 'fallback' };
+        return { response: "I can't connect right now. Check Ollama.", source: 'fallback' };
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 6. Generate Diagnostic Questions
+// ─────────────────────────────────────────────────────────────────────────────
+async function generateDiagnosticQuestions() {
+    const systemPrompt = 'You are a technical examiner preparing a comprehensive diagnostic test for engineering students. Return ONLY JSON.';
+    const userPrompt = `
+Create 15 multiple choice diagnostic questions covering these subjects: dsa (3 questions), webdev (3 questions), ml (3 questions), db (3 questions), systemDesign (3 questions).
+Each question needs a difficulty from 1 to 5.
+Return ONLY JSON:
+{
+  "questions": [
+    {
+      "id": "q1",
+      "subject": "dsa",
+      "difficulty": 1,
+      "question": "Question text here?",
+      "options": ["Option A", "Option B", "Option C", "Option D"],
+      "answer": 0 
+    }
+  ]
+}`;
+
+    try {
+        const raw = await callOllama(userPrompt, systemPrompt, true);
+        const parsed = extractJSON(raw);
+        return parsed.questions || [];
+    } catch (e) {
+        console.error('[Ollama] generateDiagnosticQuestions error:', e.message);
+        throw e;
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 6a. Generate Specific Topic Question
+// ─────────────────────────────────────────────────────────────────────────────
+async function generateTopicQuestion(topic, difficulty) {
+    const systemPrompt = 'You are a strict technical examiner. Generate ONLY valid JSON.';
+    const difStr = difficulty <= 2 ? 'Beginner' : difficulty <= 4 ? 'Intermediate' : 'Advanced';
+    const userPrompt = `
+Generate exactly 1 multiple choice question about "${topic}".
+Difficulty level: ${difStr} (${difficulty}/5).
+Do NOT include any extra text. Return ONLY JSON:
+{
+  "question": "Actual problem statement here?",
+  "options": ["Option A", "Option B", "Option C", "Option D"],
+  "answer": 0,
+  "difficulty": ${difficulty}
+}`;
+
+    try {
+        const raw = await callOllama(userPrompt, systemPrompt, true);
+        const parsed = extractJSON(raw);
+        return parsed.questions ? parsed.questions[0] : parsed;
+    } catch (e) {
+        console.error('[Ollama] generateTopicQuestion error:', e.message);
+        throw e;
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 7. Generate Learning Path
+// ─────────────────────────────────────────────────────────────────────────────
+async function generateLearningPath(assessment, role) {
+    const systemPrompt = 'You are a curriculum designer building custom learning plans. Return ONLY JSON.';
+    const strAreas = JSON.stringify(assessment?.strongAreas || []);
+    const weakAreas = JSON.stringify(assessment?.weakAreas || []);
+    const userPrompt = `
+Generate a personalized learning path topics array for a target role of "${role}".
+The student is strong in: ${strAreas} and weak in: ${weakAreas}.
+Provide ~8 topics prioritized for this role. Set "status" to "completed" if it falls under their strong areas easy topics, else "not_started".
+Return ONLY JSON:
+{
+  "topics": [
+    {
+      "id": "t1",
+      "title": "Topic Title",
+      "subject": "Category (dsa, webdev, etc.)",
+      "difficulty": 2,
+      "status": "not_started",
+      "resources": [
+        { "title": "Resource Name", "url": "https://example.com", "type": "video", "duration": "10 min" }
+      ]
+    }
+  ]
+}`;
+
+    try {
+        const raw = await callOllama(userPrompt, systemPrompt, true);
+        const parsed = extractJSON(raw);
+        return parsed.topics || [];
+    } catch (e) {
+        console.error('[Ollama] generateLearningPath error:', e.message);
+        throw e;
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 8. Generate Study Notes
+// ─────────────────────────────────────────────────────────────────────────────
+async function generateStudyNotes(topic, level, weakAreas) {
+    const systemPrompt = 'You are a highly skilled tutor. Explain the topic clearly formatting the response in basic HTML (using <h2>, <p>, <ul>, <li>, <strong>) which can be rendered directly by the frontend. Do NOT wrap in markdown fences.';
+    const userPrompt = `
+Generate concise but comprehensive study notes for the topic: "${topic}".
+The student is currently at level ${level}. Their weak areas in general are: ${(weakAreas || []).join(', ')}.
+Tailor the explanation to be easy to understand for their level. Focus on conceptual clarity, an example, and bullet points.
+Return ONLY raw HTML.`;
+
+    try {
+        const response = await callOllama(userPrompt, systemPrompt, false);
+        return response.trim();
+    } catch (e) {
+        console.error('[Ollama] generateStudyNotes error:', e.message);
+        throw e;
     }
 }
 
 module.exports = {
     generateInterestQuestions,
-    generateQuestions: generateInterestQuestions, // backward-compat alias
+    generateQuestions: generateInterestQuestions,
     analyzeStudentPerformance,
     predictCareers,
     generateCareerFlowchart,
     chatWithMentor,
-    callGemini,
+    callGemini: callOllama,
+    generateDiagnosticQuestions,
+    generateTopicQuestion,
+    generateLearningPath,
+    generateStudyNotes
 };

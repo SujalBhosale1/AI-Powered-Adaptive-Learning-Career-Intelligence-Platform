@@ -30,7 +30,7 @@ const ChatbotWidget = () => {
         setIsLoading(true);
 
         try {
-            const token = localStorage.getItem('token');
+            const token = localStorage.getItem('onestop_token');
             const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
             
             const res = await fetch(`${apiUrl}/chat/message`, {
@@ -50,12 +50,16 @@ const ChatbotWidget = () => {
                     isBot: true
                 }]);
             } else {
-                throw new Error("Invalid response format");
+                throw new Error(data.message || "Invalid response format");
             }
         } catch (error) {
             console.error("Chat error:", error);
+            const errorMessage = error.message.includes("Not authorized") || error.message.includes("token")
+                ? "Please log in or create an account to use the AI Mentor."
+                : "My neural connection is currently disrupted. Please ensure the backend and Ollama are running.";
+            
             setMessages(prev => [...prev, {
-                text: "My neural connection is currently disrupted. Please ensure the backend and Ollama are running.",
+                text: errorMessage,
                 isBot: true
             }]);
         } finally {

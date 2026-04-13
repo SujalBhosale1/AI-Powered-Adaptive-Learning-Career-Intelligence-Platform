@@ -2,13 +2,14 @@ const express = require('express');
 const { body } = require('express-validator');
 const validate = require('../middleware/validate');
 const { protect } = require('../middleware/auth');
-const { getPath, updateProgress } = require('../controllers/learningController');
+const { getPath, updateProgress, getNotes } = require('../controllers/learningController');
 
 const router = express.Router();
 
 router.use(protect);
 
 router.get('/path', getPath);
+router.get('/notes', getNotes);
 
 router.post('/progress', [
   body('topicId').notEmpty(),

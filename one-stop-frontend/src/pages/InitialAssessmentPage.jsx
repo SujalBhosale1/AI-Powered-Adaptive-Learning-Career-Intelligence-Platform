@@ -109,7 +109,7 @@ const InitialAssessmentPage = () => {
                 <div>
                     <h2 className="text-2xl font-extrabold text-white">Preparing Your Assessment</h2>
                     <p className="text-indigo-300 mt-2 text-sm">
-                        Gemini AI is crafting 10 personalised questions based on your interests in{' '}
+                        Ollama Model is crafting 10 personalised questions based on your interests in{' '}
                         <span className="text-white font-semibold">{(user?.interests || []).join(', ') || 'technology'}</span>…
                     </p>
                 </div>
@@ -133,7 +133,7 @@ const InitialAssessmentPage = () => {
                 <div>
                     <h2 className="text-2xl font-extrabold text-white">Analyzing Your Profile</h2>
                     <p className="text-indigo-300 mt-2 text-sm">
-                        Gemini is studying your responses and predicting your ideal career branches…
+                        Ollama is studying your responses and predicting your ideal career branches…
                     </p>
                 </div>
                 <Loader2 className="h-6 w-6 text-indigo-400 animate-spin mx-auto" />

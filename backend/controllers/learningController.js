@@ -1,5 +1,6 @@
 const LearningPath = require('../models/LearningPath');
 const Assessment = require('../models/Assessment');
+const { generateLearningPath } = require('../services/geminiService');
 
 exports.getPath = async (req, res, next) => {
   try {
@@ -9,12 +10,13 @@ exports.getPath = async (req, res, next) => {
       // Check if user has taken assessment
       const lastAssessment = await Assessment.findOne({ userId: req.user.id }).sort('-createdAt');
       
-      const topics = generateTopicsFromAssessment(lastAssessment);
+      const targetRole = req.user.targetRole || 'Software Engineer';
+      const topics = await generateLearningPath(lastAssessment, targetRole);
 
       path = await LearningPath.create({
         userId: req.user.id,
         topics: topics,
-        targetRole: req.user.targetRole || 'Software Engineer',
+        targetRole: targetRole,
       });
     }
 
@@ -63,41 +65,26 @@ exports.updateProgress = async (req, res, next) => {
   }
 };
 
-// Simple generator logic based on assessment results
-function generateTopicsFromAssessment(assessment) {
-  const topics = [];
-  const baseTopics = [
-    { id: 't1', title: 'Arrays & Strings Fundamentals', subject: 'dsa', difficulty: 1 },
-    { id: 't2', title: 'HTML Semantic Elements', subject: 'webdev', difficulty: 1 },
-    { id: 't3', title: 'SQL Joins & Groupings', subject: 'db', difficulty: 2 },
-    { id: 't4', title: 'Trees & Graph Traversal', subject: 'dsa', difficulty: 3 },
-    { id: 't5', title: 'React Hooks & State', subject: 'webdev', difficulty: 3 },
-    { id: 't6', title: 'Linear Regression', subject: 'ml', difficulty: 2 },
-    { id: 't7', title: 'Load Balancing & Caching', subject: 'systemDesign', difficulty: 3 },
-    { id: 't8', title: 'Dynamic Programming Basics', subject: 'dsa', difficulty: 4 },
-  ];
-
-  // If no assessment, return all
-  if (!assessment) {
-    return baseTopics.map(t => ({ ...t, status: 'not_started', resources: [] }));
-  }
-
-  // Prioritize topics based on weak areas
-  for (const topic of baseTopics) {
-    // If subject is a strong area, we can mark an easy topic as completed or keep it normal
-    if (assessment.strongAreas.includes(topic.subject) && topic.difficulty <= 2) {
-      topics.push({ ...topic, status: 'completed', completedAt: new Date() });
-    } else {
-      topics.push({ ...topic, status: 'not_started' });
+exports.getNotes = async (req, res, next) => {
+  try {
+    const { topic } = req.query;
+    if (!topic) {
+      return res.status(400).json({ success: false, message: 'Topic is required' });
     }
-  }
 
-  // Add dummy resources
-  return topics.map(t => ({
-    ...t,
-    resources: [
-      { title: `Introduction to ${t.title}`, url: 'https://youtube.com', type: 'video', duration: '15 min' },
-      { title: `${t.title} Cheat Sheet`, url: 'https://dev.to', type: 'article', duration: '5 min' }
-    ]
-  }));
-}
+    // Get user recent assessment to determine weak areas
+    const lastAssessment = await Assessment.findOne({ userId: req.user.id }).sort('-createdAt');
+    const weakAreas = lastAssessment ? lastAssessment.weakAreas : [];
+    const level = req.user.level || 1;
+
+    const { generateStudyNotes } = require('../services/geminiService');
+    const notesHtml = await generateStudyNotes(topic, level, weakAreas);
+
+    res.status(200).json({
+      success: true,
+      notes: notesHtml,
+    });
+  } catch (error) {
+    next(error);
+  }
+};

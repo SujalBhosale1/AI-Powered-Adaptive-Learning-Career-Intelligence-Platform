@@ -21,6 +21,15 @@ const DashboardPage = () => {
   const userBranch = user?.profile?.branch || user?.branch || user?.targetRole || "Computer Science";
   const branchData = getEngineeredData(userBranch);
 
+  const hasXP = (user?.totalXP > 0) || (xpData?.total > 0);
+  const weeklyData = hasXP 
+    ? undefined // defaults to mockData placeholder until full timeseries is added
+    : [
+        { day: 'Mon', xp: 0 }, { day: 'Tue', xp: 0 }, { day: 'Wed', xp: 0 }, 
+        { day: 'Thu', xp: 0 }, { day: 'Fri', xp: 0 }, { day: 'Sat', xp: 0 }, { day: 'Sun', xp: 0 }
+      ];
+  const weeklyTotal = hasXP ? "1,200 XP" : "0 XP";
+
   return (
     <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
 
@@ -94,12 +103,17 @@ const DashboardPage = () => {
       </div>
 
       {/* Stats Overview */}
-      <StatsOverview />
+      <StatsOverview 
+        profileStrength={`${user?.profileStrength || 0}%`}
+        skillsVerified={user?.skills?.length || 0}
+        daysStreak={user?.learningStreak || 0}
+        profileViews={user?.profileViews || 0}
+      />
 
       {/* Interactive Visualizations Row */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="md:col-span-2">
-              <ProgressGraph />
+              <ProgressGraph data={weeklyData} totalXPThisWeek={weeklyTotal} />
           </div>
           <div className="md:col-span-1">
               <CalendarStreakTracker streak={xpData?.streak ?? 0} />

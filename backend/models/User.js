@@ -49,6 +49,8 @@ const userSchema = new mongoose.Schema({
   lastActiveDate: { type: Date, default: null },
   totalXP: { type: Number, default: 0 },
   level: { type: Number, default: 1 },
+  profileStrength: { type: Number, default: 0 },
+  profileViews: { type: Number, default: 0 },
 }, {
   timestamps: true,
   toJSON: { virtuals: true },
@@ -111,6 +113,8 @@ userSchema.virtual('publicProfile').get(function () {
     learningStreak: this.learningStreak,
     totalXP: this.totalXP,
     level: this.level,
+    profileStrength: this.profileStrength,
+    profileViews: this.profileViews,
     createdAt: this.createdAt,
   };
 });

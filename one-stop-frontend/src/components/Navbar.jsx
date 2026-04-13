@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Menu, X, User, Brain, ChevronDown, LogOut } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -8,7 +8,13 @@ import { useAuth } from '../contexts/AuthContext';
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
   const { user, logout } = useAuth();
+
+  const handleLogout = () => {
+    logout();
+    navigate('/');
+  };
 
   const isActive = (path) => location.pathname === path;
 
@@ -31,7 +37,7 @@ const Navbar = () => {
         <div className="flex justify-between h-16 items-center">
           {/* Logo */}
           <div className="flex items-center gap-6">
-            <Link to="/" className="flex items-center gap-2">
+            <Link to={user ? "/dashboard" : "/"} className="flex items-center gap-2">
                 <div className="h-8 w-8 bg-gradient-to-r from-purple-500 to-indigo-500 rounded-lg flex items-center justify-center text-white font-bold shadow-[0_0_15px_rgba(99,102,241,0.5)]">
                     AI
                 </div>
@@ -42,7 +48,7 @@ const Navbar = () => {
 
             {/* Desktop Menu */}
             <div className="hidden md:flex md:space-x-4 items-center">
-              <NavLink to="/" label="Home" />
+              {!user && <NavLink to="/" label="Home" />}
               {user && (
                 <NavLink to="/dashboard" label="Dashboard" />
               )}
@@ -65,7 +71,7 @@ const Navbar = () => {
                   <span>{user.name.split(' ')[0]}</span>
                 </Link>
                 <button 
-                  onClick={logout}
+                  onClick={handleLogout}
                   className="p-2 rounded-xl text-indigo-300 hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
                   title="Logout"
                 >
@@ -100,7 +106,7 @@ const Navbar = () => {
       {isOpen && (
         <div className="md:hidden glass-card mx-4 mt-2 mb-4 border-t-0 rounded-t-none">
           <div className="pt-2 pb-3 space-y-0.5">
-            <NavLink to="/" label="🏠 Home" mobile />
+            {!user && <NavLink to="/" label="🏠 Home" mobile />}
             {user && (
               <>
                 <NavLink to="/dashboard" label="📋 Dashboard" mobile />
@@ -113,7 +119,7 @@ const Navbar = () => {
               <>
                 <NavLink to="/profile" label={`👤 ${user.name}`} mobile />
                 <button 
-                  onClick={() => { logout(); setIsOpen(false); }}
+                  onClick={() => { handleLogout(); setIsOpen(false); }}
                   className="w-full text-left block pl-3 pr-4 py-2.5 border-l-4 border-transparent text-sm font-medium text-rose-400 hover:bg-rose-500/10 transition-colors"
                 >
                   🚪 Logout

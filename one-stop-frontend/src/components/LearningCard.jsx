@@ -10,7 +10,7 @@ const STATUS_CONFIG = {
 
 const DIFFICULTY_LABELS = ['', 'Beginner', 'Elementary', 'Intermediate', 'Advanced', 'Expert'];
 
-const LearningCard = ({ topic, status, accuracy, recommendedDifficulty, description, onStart }) => {
+const LearningCard = ({ topic, status, accuracy, recommendedDifficulty, description, onStart, onViewNotes }) => {
   const config = STATUS_CONFIG[status] || STATUS_CONFIG.untouched;
   const StatusIcon = config.icon;
 
@@ -57,21 +57,32 @@ const LearningCard = ({ topic, status, accuracy, recommendedDifficulty, descript
         <span className="text-xs font-medium text-indigo-300">
           🎯 Next: <span className="font-bold text-indigo-200">{DIFFICULTY_LABELS[recommendedDifficulty] || 'Beginner'}</span>
         </span>
-        <button
-          onClick={() => onStart(topic)}
-          className={`flex items-center gap-1 px-4 py-2 rounded-lg text-sm font-bold transition-all hover:scale-105 shadow-[0_0_10px_currentColor] ${
-            status === 'mastered'
-              ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/50 hover:bg-emerald-500/30'
-              : status === 'weak'
-              ? 'bg-rose-500/20 text-rose-400 border border-rose-500/50 hover:bg-rose-500/30'
-              : status === 'untouched'
-              ? 'bg-white/10 text-white border border-white/20 hover:bg-white/20'
-              : 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/50 hover:bg-indigo-500/30'
-          }`}
-        >
-          {status === 'mastered' ? 'Review' : status === 'untouched' ? 'Start' : 'Continue'}
-          <ChevronRight className="h-4 w-4" />
-        </button>
+        <div className="flex gap-2">
+          {onViewNotes && (
+            <button
+              onClick={() => onViewNotes(topic)}
+              className="flex items-center gap-1 px-4 py-2 rounded-lg text-sm font-bold transition-all hover:scale-105 bg-white/10 text-white border border-white/20 hover:bg-white/20"
+              title="Generate AI Notes"
+            >
+              <BookOpen className="h-4 w-4" />
+            </button>
+          )}
+          <button
+            onClick={() => onStart(topic)}
+            className={`flex items-center gap-1 px-4 py-2 rounded-lg text-sm font-bold transition-all hover:scale-105 shadow-[0_0_10px_currentColor] ${
+              status === 'mastered'
+                ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/50 hover:bg-emerald-500/30'
+                : status === 'weak'
+                ? 'bg-rose-500/20 text-rose-400 border border-rose-500/50 hover:bg-rose-500/30'
+                : status === 'untouched'
+                ? 'bg-white/10 text-white border border-white/20 hover:bg-white/20'
+                : 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/50 hover:bg-indigo-500/30'
+            }`}
+          >
+            {status === 'mastered' ? 'Review' : status === 'untouched' ? 'Begin Quiz' : 'Continue'}
+            <ChevronRight className="h-4 w-4" />
+          </button>
+        </div>
       </div>
     </div>
   );

@@ -143,7 +143,7 @@ const AIAnalysisPage = () => {
                         <span className="text-xs font-bold text-indigo-300 uppercase tracking-widest">AI Analysis Complete</span>
                     </div>
                     <h1 className="text-4xl font-extrabold text-white">Your Career Intelligence Report</h1>
-                    <p className="text-indigo-300 mt-2">Powered by <span className="text-white font-semibold">Gemini AI</span> · {interestResponses.length} interest questions analysed</p>
+                    <p className="text-indigo-300 mt-2">Powered by <span className="text-white font-semibold">Ollama AI</span> · {interestResponses.length} interest questions analysed</p>
                 </div>
 
                 {/* ── Journey Flowchart ─────────────────────────────────────── */}
@@ -156,7 +156,7 @@ const AIAnalysisPage = () => {
                         <JourneyNode icon="👤" label="You" sub={user?.name?.split(' ')[0] || 'Student'} glow="rgba(99,102,241,0.4)" />
                         <JourneyNode icon="🎯" label="Interests" sub={dominantInterest || topTag || 'Coding'} glow="rgba(139,92,246,0.4)" />
                         <JourneyNode icon="📝" label="Assessment" sub={`${interestResponses.length} questions`} glow="rgba(245,158,11,0.4)" />
-                        <JourneyNode icon="✨" label="Gemini AI" sub="Analysis" glow="rgba(16,185,129,0.4)" />
+                        <JourneyNode icon="✨" label="Ollama AI" sub="Analysis" glow="rgba(16,185,129,0.4)" />
                         <JourneyNode icon="🚀" label="Career Path" sub="Predicted!" glow="rgba(239,68,68,0.4)" isLast />
                     </div>
                 </div>

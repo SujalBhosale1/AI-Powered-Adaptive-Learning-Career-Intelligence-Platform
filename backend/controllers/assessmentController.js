@@ -1,34 +1,20 @@
 const Assessment = require('../models/Assessment');
 const { classifySkills } = require('../services/mlService');
-const { generateInterestQuestions, analyzeStudentPerformance } = require('../services/geminiService');
+const { generateInterestQuestions, analyzeStudentPerformance, generateDiagnosticQuestions, generateTopicQuestion } = require('../services/geminiService');
 
-// Static diagnostic questions (could be moved to DB later)
-const DIAGNOSTIC_QUESTIONS = [
-  { id: 'q1', subject: 'dsa', difficulty: 1, question: 'What is the time complexity of searching an element in a balanced binary search tree?', options: ['O(1)', 'O(n)', 'O(log n)', 'O(n log n)'], answer: 2 },
-  { id: 'q2', subject: 'dsa', difficulty: 3, question: 'Which data structure is used to implement a priority queue?', options: ['Stack', 'Linked List', 'Array', 'Heap'], answer: 3 },
-  { id: 'q3', subject: 'dsa', difficulty: 4, question: 'What is the most efficient algorithm to find the shortest path in an unweighted graph?', options: ['Dijkstra', 'BFS', 'DFS', 'Bellman-Ford'], answer: 1 },
-  { id: 'q4', subject: 'webdev', difficulty: 1, question: 'Which HTML tag is used for the largest heading?', options: ['<head>', '<h6>', '<heading>', '<h1>'], answer: 3 },
-  { id: 'q5', subject: 'webdev', difficulty: 3, question: 'What does CSS flex-wrap property do?', options: ['Aligns items vertically', 'Allows items to wrap onto multiple lines', 'Changes font size dynamically', 'Hides overflowing items'], answer: 1 },
-  { id: 'q6', subject: 'webdev', difficulty: 4, question: 'In React, what hook is used to handle side effects?', options: ['useState', 'useEffect', 'useMemo', 'useContext'], answer: 1 },
-  { id: 'q7', subject: 'ml', difficulty: 2, question: 'Which algorithm is typically used for binary classification?', options: ['Linear Regression', 'K-Means', 'Logistic Regression', 'PCA'], answer: 2 },
-  { id: 'q8', subject: 'ml', difficulty: 3, question: 'What is the purpose of a loss function in neural networks?', options: ['Increase accuracy', 'Measure prediction error', 'Normalize data', 'Speed up training'], answer: 1 },
-  { id: 'q9', subject: 'ml', difficulty: 5, question: 'Which technique helps prevent overfitting in decision trees?', options: ['Gradient Descent', 'Backpropagation', 'Pruning', 'Activation Functions'], answer: 2 },
-  { id: 'q10', subject: 'db', difficulty: 1, question: 'What does SQL stand for?', options: ['Structured Query Language', 'Simple Question Language', 'Standard Query Logic', 'Sequential Query Language'], answer: 0 },
-  { id: 'q11', subject: 'db', difficulty: 3, question: 'Which normal form ensures there are no transitive dependencies?', options: ['1NF', '2NF', '3NF', 'BCNF'], answer: 2 },
-  { id: 'q12', subject: 'db', difficulty: 4, question: 'What is an index in a database used for?', options: ['Encrypting data', 'Speeding up data retrieval', 'Storing backups', 'Enforcing foreign keys'], answer: 1 },
-  { id: 'q13', subject: 'systemDesign', difficulty: 2, question: 'What is the main advantage of microservices architecture?', options: ['Easier to test as a whole', 'Shared single database', 'Independent deployability', 'Lower latency'], answer: 2 },
-  { id: 'q14', subject: 'systemDesign', difficulty: 4, question: 'Which component distributes incoming network traffic across multiple servers?', options: ['CDN', 'Load Balancer', 'API Gateway', 'Message Queue'], answer: 1 },
-  { id: 'q15', subject: 'systemDesign', difficulty: 5, question: 'What theorem states that a distributed system can only provide two out of Consistency, Availability, and Partition tolerance?', options: ['CAP Theorem', 'BASE Theorem', 'ACID Theorem', 'Paxos Theorem'], answer: 0 }
-];
+const userQuizCache = new Map();
 
 exports.getDiagnostic = async (req, res, next) => {
   try {
+    const questions = await generateDiagnosticQuestions();
+    userQuizCache.set(req.user.id, questions);
+
     // Send back questions without the answers
-    const questions = DIAGNOSTIC_QUESTIONS.map(({ answer, explanation, ...q }) => q);
+    const sanitized = questions.map(({ answer, explanation, ...q }) => q);
     
     res.status(200).json({
       success: true,
-      questions,
+      questions: sanitized,
     });
   } catch (error) {
     next(error);
@@ -50,6 +36,15 @@ exports.getInterestQuestions = async (req, res, next) => {
 // POST /api/assessment/generate (kept for AdaptiveQuizPage compatibility)
 exports.generateQuiz = async (req, res, next) => {
   try {
+    const { topic, difficulty } = req.body;
+    
+    // If topic is provided, it's an Adaptive Quiz request
+    if (topic) {
+        const q = await generateTopicQuestion(topic, difficulty || 2);
+        return res.status(200).json({ success: true, questions: [q] });
+    }
+
+    // Default fallback to Interest Questions (used if body is missing)
     const interests = req.user.interests || [];
     const name = req.user.name || 'Student';
     const questions = await generateInterestQuestions(interests, name);
@@ -91,8 +86,10 @@ exports.submitAssessment = async (req, res, next) => {
     const scores = { dsa: 0, webdev: 0, ml: 0, db: 0, systemDesign: 0 };
     const maxScores = { dsa: 0, webdev: 0, ml: 0, db: 0, systemDesign: 0 };
     
+    const cachedQuestions = userQuizCache.get(req.user.id) || [];
+    
     const processedAnswers = answers.map(ans => {
-      const q = DIAGNOSTIC_QUESTIONS.find(q => q.id === ans.questionId);
+      const q = cachedQuestions.find(q => q.id === ans.questionId);
       if (!q) return null;
       
       const isCorrect = q.answer === ans.selectedOption;
@@ -125,7 +122,7 @@ exports.submitAssessment = async (req, res, next) => {
     // Save Assessment
     const assessment = await Assessment.create({
       userId: req.user.id,
-      questions: DIAGNOSTIC_QUESTIONS,
+      questions: cachedQuestions,
       answers: processedAnswers,
       scores: finalScores,
       level: mlAnalysis.skill_level,
